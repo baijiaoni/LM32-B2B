@@ -25,6 +25,7 @@ Soure B2B SCU
 #include "ebm.h"
 #include "aux.h"
 #include "hw-tlu.h"
+#include "time_counter.h"
 
 /* Vender ID and device ID */
 #define venID 0x651
@@ -32,6 +33,7 @@ Soure B2B SCU
 #define devID_EBM   0x00000815
 #define devID_ECA   0x8752bf44
 #define devID_TLU   0x10051981
+#define devID_TIME  0x53bee0e2
 #define LM32_CB_CLUSTER       0x10041000
 #define LM32_IRQ_EP           0x10050083
 
@@ -91,7 +93,8 @@ volatile unsigned short* pSCUbm = 0;
 volatile unsigned short* pEBm   = 0;
 volatile unsigned short* pECA   = 0;
 volatile unsigned short* pECA_Q = 0;
-volatile unsigned * pTLU = 0;
+volatile unsigned      * pTLU   = 0;
+volatile unsigned      * pTIME  = 0;
 
 
 /* variables for h1 phase read from the PAP module */
@@ -415,6 +418,27 @@ uint32_t calculate_synch_window_uncertainty(uint64_t predicted_phase_uncertainty
   return synch_window_uncertainty;
 }
 
+void measure_function_time(uint32_t second1, uint32_t second2, uint32_t cycle1, uint32_t cycle2)
+{
+  uint32_t function_time;
+  if (second2 > second1 + 1)
+    mprintf ("!!!Measurement is error.\n");
+  else
+  {
+    if (second2 == second1 + 1)
+    {
+      function_time = (125000000 - cycle1 + cycle2)*8; //ns
+      mprintf("function time 1 is %d\n",  function_time);
+    }
+    else
+    {
+      function_time = (cycle2 - cycle1) * 8; //ns
+      mprintf("function time 2 is %d\n",  function_time);
+    }
+  }
+  return;
+}
+
 /* Function main */
 int main (void)
 {
@@ -430,6 +454,12 @@ int main (void)
   uint64_t * tm_high_0_st;
   uint32_t synchronization_window_uncertainty;
   uint64_t frequency_beating_time;
+
+  /* Function time measurement */
+  uint32_t start_tai;
+  uint32_t start_cycle;
+  uint32_t stop_tai;
+  uint32_t stop_cycle;
 
   //source and target machine rf period with cavity harmonics
   period_high_harmonic_src = SCALE/freq_high_harmonic_src;
@@ -450,9 +480,10 @@ int main (void)
 
   /* Base address of the related ep cores */
   pSCUbm =(unsigned short*)find_device_adr(venID,devID_SCUBM);
-  pEBm = (unsigned int*)find_device_adr(venID,devID_EBM);
-  pECA = (unsigned int*)find_device_adr(venID,devID_ECA);
-  pTLU = (unsigned int*)find_device_adr(venID,devID_TLU);
+  pEBm   = (unsigned int*)find_device_adr(venID,devID_EBM);
+  pECA   = (unsigned int*)find_device_adr(venID,devID_ECA);
+  pTLU   = (unsigned int*)find_device_adr(venID,devID_TLU);
+  pTIME  = (unsigned int*)find_device_adr(venID,devID_TIME);
 
   find_device_multi(&found_sdb[0], &clu_cb_idx, 20, GSI, LM32_CB_CLUSTER); // find location of cluster crossbar
   find_device_multi_in_subtree(&found_sdb[0], lm32_irq_endp, &lm32_endp_idx, 10, GSI, LM32_IRQ_EP); // list irq endpoints in cluster crossbar
@@ -471,10 +502,17 @@ int main (void)
   //SIS100 h=1 is 54 degree (0x2666)(predicted phase) <=> t0+400us;
   //h=2 of SIS18 270 degree (0XC000), h=10 of SIS100 180 degree(0x7FFF)
   //Phase shift is -80 degree; phase correction is 19 degree
-
+  *(pTIME + (TIME_CTRL >> 2)) = 0x1;
   phase_correction_h1_src = (uint16_t) calculate_phase_correction_value (0x2666, 0x4B);
-  //phase_correction_h1_src = (uint16_t) calculate_phase_correction_value ((uint64_t) predicted_phase_h1_trg, (uint64_t) phase_h1_tof);
+  *(pTIME + (TIME_CTRL >> 2)) = 0x0;
+  start_tai     = *(pTIME + (TIME_START_TAI_LO >> 2));
+  start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
+  stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
+  stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
+  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  measure_function_time (start_tai,stop_tai,start_cycle,stop_cycle);
   mprintf(">>>>>>>>>>>>>>Phase correction : 0x%x\n",phase_correction_h1_src);
+  //phase_correction_h1_src = (uint16_t) calculate_phase_correction_value ((uint64_t) predicted_phase_h1_trg, (uint64_t) phase_h1_tof);
   //phase h1 => phase at high harmonic
   phase_h1_to_high_calculate (0xE000,0x2666,phase_high_h_st);
   phase_high_harmonic_src = phase_high_h_st[0];
@@ -487,15 +525,39 @@ int main (void)
   mprintf(">>>>>>>>>>>>>>>The next_high_harmonic_zero_ts output: SIS18 0x%x %x\n", tm_high_zero_src, tm_high_zero_src>>32);
   mprintf(">>>>>>>>>>>>>>>The next_high_harmonic_zero_ts output: SIS100 0x%x %x\n",tm_high_zero_trg, tm_high_zero_trg>>32);
 
+  *(pTIME + (TIME_CTRL >> 2)) = 0x1;
   phase_shift_high_src =(uint16_t)calculate_phase_shift_value (0xC000, 0x7FFF, 0x71C);
+  *(pTIME + (TIME_CTRL >> 2)) = 0x0;
+  start_tai     = *(pTIME + (TIME_START_TAI_LO >> 2));
+  start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
+  stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
+  stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
+  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  measure_function_time (start_tai, stop_tai, start_cycle, stop_cycle);
   //phase_shift_high_src = (uint16_t)calculate_phase_shift_value ((uint64_t)phase_high_harmonic_src, (uint64_t)phase_high_harmonic_trg, (uint64_t)phase_high_harmonic_tof);
   mprintf(">>>>>>>>>>>>>>>Phase shift : 0x%x\n",phase_shift_high_src);
 
   //the distance between SIS18 and SIS100 is 300m. For U28+ is about 1760ns
+  *(pTIME + (TIME_CTRL >> 2)) = 0x1;
   frequency_beating_time = calculate_freq_beating_time (tm_high_zero_src, tm_high_zero_trg, 0x1ADB00);
+  *(pTIME + (TIME_CTRL >> 2)) = 0x0;
+  start_tai     = *(pTIME + (TIME_START_TAI_LO >> 2));
+  start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
+  stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
+  stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
+  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  measure_function_time (start_tai,stop_tai,start_cycle,stop_cycle);
   mprintf(">>>>>>>>>>>>>>>frequency beating time : 0x%x %x\n",frequency_beating_time, frequency_beating_time >>32);
   // the uncertainty is 250 ps => 0xFA
+  *(pTIME + (TIME_CTRL >> 2)) = 0x1;
   synchronization_window_uncertainty = calculate_synch_window_uncertainty(0xFA);
+  *(pTIME + (TIME_CTRL >> 2)) = 0x0;
+  start_tai     = *(pTIME + (TIME_START_TAI_LO >> 2));
+  start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
+  stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
+  stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
+  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  measure_function_time(start_tai,stop_tai,start_cycle,stop_cycle);
   mprintf(">>>>>>>>>>>>>>>synchronization window uncertainty : %d (us^2)\n",(uint32_t)synchronization_window_uncertainty/1000000);
   /* Timestamp corresponds to the predicted phase t0+100us */
   //predict_phase_ts = EVT_B2B_START_ts + 100000;
