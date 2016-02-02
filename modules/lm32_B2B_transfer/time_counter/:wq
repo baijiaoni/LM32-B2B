@@ -1,0 +1,57 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library work;
+use work.wishbone_pkg.all;
+use work.wr_fabric_pkg.all;
+use work.time_counter_pkg.all;
+use work.endpoint_pkg.all;
+
+entity time_counter is
+port ( 
+    clk_i           : in  std_logic;
+    rst_n_i         : in  std_logic;
+    counter_tm_tai_i     : in  std_logic_vector(39 downto 0);
+    counter_tm_cycle_i   : in  std_logic_vector(27 downto 0);
+    counter_src_i        : in  t_wrf_source_in;
+    counter_src_o        : out t_wrf_source_out);
+
+end time_counter;    
+
+architecture rtl of time_counter is
+
+  signal s_counter_start :std_logic;
+  signal s_counter_stop  :std_logic;
+
+  signal s_counter_ts_start_tai_i :std_logic_vector(39 downto 0) ;
+  signal s_counter_ts_start_cyc_i :std_logic_vector(27 downto 0) ;
+  signal s_counter_ts_stop_tai_i   :std_logic_vector(39 downto 0) ;
+  signal s_counter_ts_stop_cyc_i   :std_logic_vector(27 downto 0) ;
+
+  begin
+
+  -- Start/Stop time counter
+  counter : process(clk_i)
+    begin
+    if rising_edge(clk_i) then
+      if rst_n_i = '0' then
+        s_counter_start <= '0';
+        s_counter_stop  <= '0';
+      else
+        if s_counter_start = '1' then
+           s_counter_ts_start_tai_i        <= counter_tm_tai_i ;
+           s_counter_ts_start_cyc_i        <= counter_tm_cycle_i ;  
+           s_counter_start = '0';
+        end if;
+
+        if s_counter_stop = '1' then
+           s_counter_ts_stop_tai_i        <= counter_tm_tai_i ;
+           s_counter_ts_stop_cyc_i        <= counter_tm_cycle_i ;  
+           s_counter_stop = '0';
+        end if;
+      end if;   
+    end if;   
+  end process;
+
+  end rtl;
