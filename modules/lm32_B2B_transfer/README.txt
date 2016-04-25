@@ -37,4 +37,17 @@ TLU_POP //channel 1 pop the timestamp out, the number of data in FIFO 1 minus 1
 
 For SCU B2 input => output: modify scu_control.vhd gpio_i(1) lemo_io 
 
+ECA
+
+# Activate ECA Queue for events ID 0x881122 or Event tag 5
+[root@scuxl0041 ~]# saft-ecpu-ctl baseboard -x
+[root@scuxl0041 ~]# saft-ecpu-ctl baseboard -c 0x881122 64 0 5
+Action sink configured...
+
+# Send event
+[root@scuxl0041 ~]# saft-ctl baseboard inject 0x881122 0xdeadbeef22226666 0
+#Pop the event out
+eb-write tcp/scuxl0041.acc.gsi.de 0xc4/4 0x1
+# Read event content
+jbai@belpc136:~/test/bel_projects_B2B/bel_projects/modules/B2B_queue_test$ ./ECA_QUEUE_READ.sh
 

@@ -300,12 +300,13 @@ void read_predicted_phase_from_PAP (int slave_nr, int offset, uint32_t value)
 
 uint64_t calculate_phase_shift_value (uint64_t phase_high_src, uint64_t phase_high_trg, uint64_t phase_high_tof)
 {
-  mprintf("/********************Phase Shift****************************/\n");
+  //mprintf("/********************Phase Shift****************************/\n");
   uint64_t shift_high_src = 0;
   // Predicted Phase from PAP is 16 bits [0, 360]
   if (phase_high_trg == phase_high_src + 0xFFFF - phase_high_tof || phase_high_trg == phase_high_src - 0xFFFF - phase_high_tof || phase_high_trg == phase_high_src - phase_high_tof)//(1)
   {
     shift_high_src = 0;
+    //mprintf("-----------");
   }
   else
   {
@@ -338,7 +339,7 @@ uint64_t calculate_phase_shift_value (uint64_t phase_high_src, uint64_t phase_hi
 uint64_t calculate_phase_correction_value (uint64_t predicted_phase_h_trg, uint64_t phase_h_tof)
 {
   uint64_t phase_correction_h_src = 0;
-  mprintf("/********************Phase Correction****************************/\n");
+  //mprintf("/********************Phase Correction****************************/\n");
   //phase corrction is triggered at t0 + 1ms + 10 us by BuTiS T0, phase correction [0,360]
   phase_correction_h_src = predicted_phase_h_trg + ((1000000 - 400000 + 10000)*1000 % period_h1_trg)*0xFFFF/ period_h1_trg +  phase_h_tof;
   //mprintf ("SIS18 h=1 period = %x %d(ps); SIS100 h=1 period = 0x%x %d(ps)\n",period_h1_src, period_h1_src,period_h1_trg, period_h1_trg);
@@ -347,8 +348,8 @@ uint64_t calculate_phase_correction_value (uint64_t predicted_phase_h_trg, uint6
   {
     phase_correction_h_src = phase_correction_h_src - 0xFFFF;
   }
-  mprintf ("phase correction for the SR = 0x%x %x ",phase_correction_h_src, phase_correction_h_src>>32);
-  mprintf (" =>  %d(degree) \n",(uint32_t)phase_correction_h_src*360/0xFFFF);
+  //mprintf ("phase correction for the SR = 0x%x %x ",phase_correction_h_src, phase_correction_h_src>>32);
+  //mprintf (" =>  %d(degree) \n",(uint32_t)phase_correction_h_src*360/0xFFFF);
   return phase_correction_h_src;
 }
 
@@ -388,7 +389,7 @@ uint64_t calculate_freq_beating_time (uint64_t tm_high_0_src, uint64_t tm_high_0
 {
   uint64_t frequency_beat_time;
   uint64_t cycle_num = 0;
-  mprintf("/********************Frequency Beating****************************/\n");
+  //mprintf("/********************Frequency Beating****************************/\n");
 
   if (tm_high_0_src * 8 *1000 >= (tm_high_0_trg * 8*1000 -tof_time))
     {
@@ -400,10 +401,10 @@ uint64_t calculate_freq_beating_time (uint64_t tm_high_0_src, uint64_t tm_high_0
     }
 
   frequency_beat_time = cycle_num * period_high_harmonic_src;
-  mprintf("The number of SIS18 for the synchronization = 0x%x %x",cycle_num,cycle_num >>32);
-  mprintf(" =>  %d\n",(uint32_t)cycle_num);
-  mprintf("frequency beating time = 0x%x %x", frequency_beat_time, frequency_beat_time>>32);
-  mprintf(" => %d (ns) %d(ms)\n", (uint32_t)frequency_beat_time/1000, (uint32_t)frequency_beat_time/1000000000);
+  //mprintf("The number of SIS18 for the synchronization = 0x%x %x",cycle_num,cycle_num >>32);
+  //mprintf(" =>  %d\n",(uint32_t)cycle_num);
+  //mprintf("frequency beating time = 0x%x %x", frequency_beat_time, frequency_beat_time>>32);
+  //mprintf(" => %d (ns) %d(ms)\n", (uint32_t)frequency_beat_time/1000, (uint32_t)frequency_beat_time/1000000000);
   return frequency_beat_time;
 }
 /* The uncertainty introduced by the predicted phase, the DDS rf frequency
@@ -414,7 +415,7 @@ uint32_t calculate_synch_window_uncertainty(uint64_t predicted_phase_uncertainty
   //us the uncertity squre "sqrt" does not work properly
   //synch_window_uncertainty = sqrt((pow(freq_high_harmonic_src,2)+pow(freq_high_harmonic_trg,2))*pow(predicted_phase_uncertainty,2)/pow((freq_high_harmonic_src-freq_high_harmonic_trg),2))/1000000;
   synch_window_uncertainty = ((pow(freq_high_harmonic_src,2)+pow(freq_high_harmonic_trg,2))*pow(predicted_phase_uncertainty,2)/pow((freq_high_harmonic_src-freq_high_harmonic_trg),2))/1000000;
-  mprintf("%%%%%%%%%%%%%% %x %x",synch_window_uncertainty,synch_window_uncertainty>>32);
+  //mprintf("%%%%%%%%%%%%%% %x %x",synch_window_uncertainty,synch_window_uncertainty>>32);
   return synch_window_uncertainty;
 }
 
@@ -503,13 +504,14 @@ int main (void)
   //h=2 of SIS18 270 degree (0XC000), h=10 of SIS100 180 degree(0x7FFF)
   //Phase shift is -80 degree; phase correction is 19 degree
   *(pTIME + (TIME_CTRL >> 2)) = 0x1;
-  phase_correction_h1_src = (uint16_t) calculate_phase_correction_value (0x2666, 0x4B);
+  //phase_correction_h1_src = (uint16_t) calculate_phase_correction_value (0x2666, 0x4B);
+  phase_correction_h1_src = (uint16_t) calculate_phase_correction_value (0x4B, 0x4B);
   *(pTIME + (TIME_CTRL >> 2)) = 0x0;
   start_tai     = *(pTIME + (TIME_START_TAI_LO >> 2));
   start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
   stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
   stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
-  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  mprintf("function time phase correction :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
   measure_function_time (start_tai,stop_tai,start_cycle,stop_cycle);
   mprintf(">>>>>>>>>>>>>>Phase correction : 0x%x\n",phase_correction_h1_src);
   //phase_correction_h1_src = (uint16_t) calculate_phase_correction_value ((uint64_t) predicted_phase_h1_trg, (uint64_t) phase_h1_tof);
@@ -532,7 +534,7 @@ int main (void)
   start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
   stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
   stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
-  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  mprintf("function time phase shift:start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
   measure_function_time (start_tai, stop_tai, start_cycle, stop_cycle);
   //phase_shift_high_src = (uint16_t)calculate_phase_shift_value ((uint64_t)phase_high_harmonic_src, (uint64_t)phase_high_harmonic_trg, (uint64_t)phase_high_harmonic_tof);
   mprintf(">>>>>>>>>>>>>>>Phase shift : 0x%x\n",phase_shift_high_src);
@@ -545,7 +547,7 @@ int main (void)
   start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
   stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
   stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
-  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  mprintf("function time frequency beat:start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
   measure_function_time (start_tai,stop_tai,start_cycle,stop_cycle);
   mprintf(">>>>>>>>>>>>>>>frequency beating time : 0x%x %x\n",frequency_beating_time, frequency_beating_time >>32);
   // the uncertainty is 250 ps => 0xFA
@@ -556,7 +558,7 @@ int main (void)
   start_cycle   = *(pTIME + (TIME_START_CYCLE  >> 2));
   stop_tai      = *(pTIME + (TIME_STOP_TAI_LO  >> 2));
   stop_cycle    = *(pTIME + (TIME_STOP_CYCLE   >> 2));
-  mprintf("function time :start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
+  mprintf("function time uncertainty:start 0x%x %x stop 0x%x %x\n", start_tai,start_cycle,stop_tai,stop_cycle);
   measure_function_time(start_tai,stop_tai,start_cycle,stop_cycle);
   mprintf(">>>>>>>>>>>>>>>synchronization window uncertainty : %d (us^2)\n",(uint32_t)synchronization_window_uncertainty/1000000);
   /* Timestamp corresponds to the predicted phase t0+100us */
